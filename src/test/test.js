@@ -1,9 +1,15 @@
 const fetch = require('node-fetch')
 
+const URL = 'https://api.census.gov/data/2015/acs/acs5?get=NAME,B01001_001E,GEO_ID&for=county:*&in=state:01'
 
-
-const response = fetch('https://api.census.gov/data/2015/acs/acs5?get=NAME,B01001_001E&for=county:*&in=state:01')
+fetch(URL)
 .then(res => res.json())
+.then (json => {
+  // console.log(json)
+  let result = json.filter(i => i[2] === "0500000US01105")
+  console.log(result)
+})
+.catch(() => console.log("error!"))
 
 /* response
 [ [ 'NAME', 'B01001_001E', 'state', 'county' ],
