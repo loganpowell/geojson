@@ -10,15 +10,7 @@ let closure = () => {
 
 let data = closure();
 
-// GraphQL context
-let key = process.env.Census_Key_Pro
-// GraphQL args or loaders in context
-var scope = {
-  geo_scope: "county",
-  vintage: 2012,
-  fips_codes: [01012, 01102], // <- accept an array, * or just one*
-  coordinates: [[31.1052,87.0722], ]// ...{lng, lat}] // optional -> to Tiger
-}
+
 // tiger endpoint taxonomy
 // https://tigerweb.geocensus.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2016/MapServer/84/query
 // https://tigerweb.geo.census.gov/arcgis/rest/services/Census2010/tigerWMS_Census2010/MapServer/10/query
@@ -36,19 +28,40 @@ let baseTigerURL = (source, vintage, scope, lat, lng) => `https://tigerweb.geo.c
 let fetchedBase = baseTigerURL("TIGERweb", "tigerWMS_ACS2016", "84", 31.1052, -87.0722) /*?*/
 
 let testTiger = fetch(fetchedBase).then(res => res.json()).then(json => console.log(json.features[0]["attributes"]["STATE"])) /*?*/
-
-var scale = {
+// GraphQL context
+let key = process.env.Census_Key_Pro
+// GraphQL args or loaders in context
+var geo = {
+  geo_scope: "state",
+  vintage: 2012,
+  scope_fips: [01, 02], // <- accept an array or just one
+  coordinates: [...{lat, lng} ]// optional -> to Tiger
   geo_level: "tract",
+  level_fips: [001, 003] // fips_scope.length > 1 ? default = *
   resolution: "500k" // <- (toLowerCase)
 }
 var variables = [
-  {source: "sf1", data: ["P028E001", "P028E002", "P028E005"]},
-  {source: "cbp", data: ["ESTAB"]}
+  {source: "acs/acs5", stats: ["B01001_001E", "B01001_001M", "B01001_001A"]},
+  {source: "sf1", stats: ["P028E001", "P028E002", "P028E005"]},
+  {source: "cbp", stats: ["ESTAB"]}
 ]
-
-let fetchStatsForOneScope = (key,scale, variables) => {
+//https://api.census.gov/data/2016/acs/acs5?for=$:*&in=state:01&get=NAME,B01001_001E&key=${key}
+let fetchStatsForOneScope = (
+  key,
+  {
+    geo_scope,
+    vintage,
+    scope_fips,
+    coordinates,
+    geo_level,
+    level_fips = *,
+    resolution = "500K"
+  },
+  variables
+) => {
+  // will need to iterate over fips_scopes if more than 1 (* or [...])
   let dataweb = fetch(
-    `https://api.census.gov/data/2016/acs/acs5?for=county:*&in=state:01&get=NAME,B01001_001E&key=${key}`
+    `https://api.census.gov/data/${vintage}/${product}?for=${geo_level}:${...fips_levels}&in=${geo_scope}:${fips_scope}&get=NAME,${...variables}&key=${key}`
   ).then(r => r.json());
 
   let statsObj = dataweb.then(data => {
@@ -72,4 +85,4 @@ let fetchStatsForOneScope = (key,scale, variables) => {
   return statsObj
 }
 
-// fetchStatsForOneScope(key)
+fetchStatsForOneScope(key)
