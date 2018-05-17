@@ -25,70 +25,31 @@ Query:
 - info:
 - children:
  - Product
- - [FeatureCollection]
+ - {FeatureCollection}
 - type:
 - resolution:
 
-FeatureCollection []:
+FeatureCollection {}:
+- children:
+  - [Features]
+    - {Properties}
+
+Features []
+- children:
+  - {Properties}
+
+Properties {}:
 - obj:
 - args:
 - context:
 - info:
 - children:
- - [Properties]
+ - [Statistics] (from dataweb/other)
+ - [GeoData] (from geojson)
 - type:
 - resolution:
 
-working with mapbox-gl
-```js
-"properties": {
-  "a": {
-    "b": "some value"
-  }
-}
-```
-inside-out (function composition style) `get`:
-```js
-[ "get", "b", ["object", ["get", "a"]]]
-```
-[another example](https://github.com/mapbox/mapbox-gl-js/issues/2434#issuecomment-356723412):
-```js
-line_color = {
-  base: 1,
-  property: 'analysis.data.volume',
-  stops: [
-  ...
-  ],
-}
-```
- you can use the "get" expression like so:
- `["get", "volume", ["get", "data", ["get", "analysis"]]]`
-
-To replicate stop-function-like behavior using expressions, use "interpolate", e.g.:
-
-```js
-[
-  "interpolate",
-  ["linear"],
-  ["get", "volume", ["get", "data", ["get", "analysis"]]],
-  0,
-  "green",
-  10,
-  "blue"
-]
-```
-Properties:
-- obj:
-- args:
-- context:
-- info:
-- children:
- - Statistic
- - Geographic
-- type:
-- resolution:
-
-Statistic:
+Statistics []:
 - obj:
 - args:
 - context:
@@ -136,3 +97,44 @@ TEMPLATE:
 - children:
 - type:
 - resolution:
+
+
+## working with mapbox-gl
+
+```js
+"properties": {
+  "a": {
+    "b": "some value"
+  }
+}
+```
+inside-out (function composition style) `get`:
+```js
+[ "get", "b", ["object", ["get", "a"]]]
+```
+[another example](https://github.com/mapbox/mapbox-gl-js/issues/2434#issuecomment-356723412):
+```js
+line_color = {
+  base: 1,
+  property: 'analysis.data.volume',
+  stops: [
+  ...
+  ],
+}
+```
+ you can use the "get" expression like so:
+ `["get", "volume", ["get", "data", ["get", "analysis"]]]`
+
+To replicate stop-function-like behavior using expressions, use "interpolate", e.g.:
+
+```js
+[
+  "interpolate",
+  ["linear"],
+  ["get", "volume", ["get", "data", ["get", "analysis"]]],
+  0,
+  "green",
+  10,
+  "blue"
+]
+```

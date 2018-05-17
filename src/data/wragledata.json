@@ -1,0 +1,30 @@
+[
+  {
+    "NAME": "Autauga County, Alabama",
+    "B01001_001E": "55049",
+    "STATE": "01",
+    "COUNTY": "001",
+    "GEOID": "01001"
+  },
+  {
+    "NAME": "Baldwin County, Alabama",
+    "B01001_001E": "199510",
+    "STATE": "01",
+    "COUNTY": "003",
+    "GEOID": "01003"
+  },
+  {
+    "NAME": "Barbour County, Alabama",
+    "B01001_001E": "26614",
+    "STATE": "01",
+    "COUNTY": "005",
+    "GEOID": "01005"
+  },
+  {
+    "NAME": "Bibb County, Alabama",
+    "B01001_001E": "22572",
+    "STATE": "01",
+    "COUNTY": "007",
+    "GEOID": "01007"
+  }
+]
