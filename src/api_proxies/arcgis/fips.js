@@ -1,13 +1,7 @@
 const fetch = require("node-fetch");
 const WKT = require("terraformer-wkt-parser");
 const R = require("ramda");
-require("dotenv").load();
-
-// tiger endpoint taxonomy
-// https://tigerweb.geocensus.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2016/MapServer/84/query
-// https://tigerweb.geo.census.gov/arcgis/rest/services/Census2010/tigerWMS_Census2010/MapServer/10/query
-// https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2014/MapServer/84/query
-// https://tigerweb.geo.census.gov/arcgis/rest/services/Census2010/tigerWMS_Census2000/MapServer/63/query
+const { toJson } = require("../../utils/json-parsers")
 
 const testWKT = WKT.convert({
   type: "Polygon",
@@ -17,120 +11,111 @@ const testWKT = WKT.convert({
   ]
 });
 
-//https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2016/MapServer/84/query?geometry=-87.0722,31.1052&geometryType=esriGeometryPoint&inSR=4269&spatialRel=esriSpatialRelIntersects&outFields=STATE&returnGeometry=false&f=json
-
-//https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2016/MapServer/84/query?geometry=-87.0722,31.1052&geometryType=esriGeomtryPoint&inSR=4269&spatialRel=esriSpatialRelIntersects&outFields=STATE&returnGeometry=false&f=json
-
-// https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2015/Tracts_Blocks/MapServer/2/
-
-const rawTigerConfig = (
-  geometryType = "esriGeomtryPoint",
-  spatialRelationship = "esriSpatialRelIntersects",
+const rawTigerConfig = ({
+  geometryType,
+  spatialRelationship,
   geometry,
   source,
   scope,
   vintage,
   outFields
-) => {
-  // <- curry params from most to least general
-  const string =
+}) => {
+  let string =
     "https://tigerweb.geo.census.gov/arcgis/rest/services/" +
     source + "/" + // "TIGERweb"
     vintage + // "tigerWMS_ACS2016"
     "/MapServer/" + scope + // "84"
     "/query?geometry=" + geometry + // <- lng,lat
-    "&geometryType=" + geometryType + // "esriGeomtryPoint" / "esriGeometryEnvelope"
-    "&inSR=4269&spatialRel=" + spatialRelationship + // "esriSpatialRelIntersects" / "esriSpatialRelContains"
+    "&geometryType=" + geometryType +
+    "&inSR=4269&spatialRel=" + spatialRelationship +
     "&outFields=" + outFields + // "STATE"
-    "&returnGeometry=false&f=json";
+    "&returnGeometry=false&f=geojson";
   return string;
 };
 
-const tigerConfig = R.curry(rawTigerConfig);
-
 const testConfigObj = {
-  geometryType: "esriGeometryPoint",
-  geometry: "-87.0722,31.1052",
-  spatialRelationship: "esriSpatialRelIntersects",
+  geometry: "-87.0722,31.1052", // <- concat coord array input
   source: "TIGERweb",
   vintage: "tigerWMS_ACS2016",
   outFields: "STATE",
   scope: "84"
 };
 
-const curryObjParams = (obj) => R.useWith(
-  (obj) => {
-    const string =
-      "https://tigerweb.geo.census.gov/arcgis/rest/services/" +
-      obj.source + "/" + // "TIGERweb"
-      obj.vintage + // "tigerWMS_ACS2016"
-      "/MapServer/" + obj.scope + // "84"
-      "/query?geometry=" + obj.geometry + // <- lng,lat
-      "&geometryType=" + obj.geometryType + // "esriGeomtryPoint" / "esriGeometryEnvelope"
-      "&inSR=4269&spatialRel=" + obj.spatialRelationship + // "esriSpatialRelIntersects" / "esriSpatialRelContains"
-      "&outFields=" + obj.outFields + // "STATE"
-      "&returnGeometry=false&f=json";
-    return string;
-  },
-  R.merge(...obj)
+const geoPointOpts = {
+  geometryType: "esriGeometryPoint", // esriGeometry + Point
+  spatialRelationship: "esriSpatialRelIntersects" // esriSpatialRel + Intersects
+}
+
+const point2Fips = (customOpts) => {
+	let opts = R.merge( // <- merge objects to create single obj arg
+    geoPointOpts,
+    customOpts
+  )
+	return rawTigerConfig(opts)
+}
+
+const tigerFetch = configObj => fetch(point2Fips(configObj)) /*?*/
+
+const fipsScopeConfig = scope => R.pipeP(
+  tigerFetch, // async
+  toJson, // sync
+  R.view(R.lensPath(["features", 0, "properties", scope])), // sync
 )
 
-// === TODO: Ramda: useWith, merge, point free-ify the query-building argument object function (using higher order functions)
-// https://github.com/ramda/ramda/issues/1258
-// https://gist.github.com/loganpowell/cd712ee5b97a07d7c2a835dc42ec557e
+const getFipsByLngLat = fipsScopeConfig("STATE")
 
-/*
-const tigerFetch = configObj => fetch(tigerConfig(configObj));
-const jsonify = response => response.json()
-const jsonPath = path => R.path(path)
+getFipsByLngLat(testConfigObj) /*?*/
 
 
-tigerFetch(testConfigObj)
-  .then(jsonify)
-  .then(jsonPath(["features", 0, "attributes", "STATE"]))
-  // .then(res => console.log(res))
+/* === === === START NOTES === === ===
+
+// Examples based on this query
+const queryEx = https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2016/MapServer/84/query?geometry=-87.0722,31.1052&geometryType=esriGeometryPoint&inSR=4269&spatialRel=esriSpatialRelIntersects&outFields=STATE&returnGeometry=false&f=geojson
 
 
-const test1 = (path) =>
-  R.pipeP(
-    R.pipe(jsonify, jsonPath(path), Promise.resolve)
-  )
+// ========== TODO:
 
-test1(["features", 0, "attributes", "STATE"])(tigerFetch(testConfigObj))
+1: Discect Tigerweb taxonomy to configure inputs for all endpoints:
 
-const responseEx = {
-  displayFieldName: "BASENAME",
-  fieldAliases: {
-    STATE: "STATE"
-  },
-  fields: [
-    {
-      name: "STATE",
-      type: "esriFieldTypeString",
-      alias: "STATE",
-      length: 2
-    }
-  ],
-  features: [
-    {
-      attributes: {
-        STATE: "01"
-      }
-    }
-  ]
-};
+https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_wms.html
 
-test1(responseEx, ["features", 0, "attributes", "STATE"])(tigerFetch(testConfigObj));
 
-// test1(testConfigObj, ["features",0,"attributes","STATE"])
+?: get geo_level fips with an input geometry
 
-const testResponse =
-fetch(tigerConfig(testConfigObj))
-.then(r => r.json())
-.then(json => json["features"][0]["attributes"]["STATE"])
-*/
+const geoFrameOpts = {
+  geometryType: "esriGeometryEnvelope",
+  spatialRelationship: "esriSpatialRelContains"
+}
 
-// .then(r => console.log(r))
 
-// const fetchedBase = baseTigerURL("TIGERweb", "tigerWMS_ACS2016", "84", 31.1052,-87.0722)
-// const testTiger = fetch(fetchedBase).then(res => res.json()).then(json => console.log(json.features[0]["attributes"]["STATE"]))
+// ========== FURTHER STUDIES:
+
+// Piping promises (1)
+
+const program = (...list) => acc =>
+R.flatten(list).reduce((acc,fn) => acc.then(fn), Promise.resolve(acc));
+
+// Study in composition (2)
+const tree = {a: [ { b: 'hey' }  ] };
+
+const findIn = R.curry((path, obj) =>
+  R.compose(
+    R.view(R.__, obj), // R.__ takes the composed path
+    R.apply(R.compose),
+    R.map(
+      R.cond([
+        [R.is(Number), R.lensIndex],
+        [R.T, R.lensProp]
+      ])
+    )
+  )(path)
+)
+findIn(['a', 0, 'b'], tree); // => "hey"
+
+
+// ========== SOURCES:
+
+(1) https://medium.com/@dtipson/more-functional-javascript-reducing-promises-ramda-js-arrow-functions-again-c1f90e0a79d0
+(2) https://github.com/ramda/ramda/issues/1816
+
+// === === === END NOTES === === ===  */
